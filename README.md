@@ -56,10 +56,16 @@ Centralized Axolotl configuration files for different training scenarios and mod
 ### Option 1: Modal Training (Recommended for Cloud)
 ```bash
 # Install Modal CLI
-pip install modal
+pip install -r requirements.txt
+
+# Use vLLM and run inference server for initial benchmarking
+modal deploy ./src/modal_base_inference.py
 
 # Run training on Modal
-modal run modal/modal_train.py --config configs/config.yaml
+modal run src/modal_train.py --config configs/config-llama-8b-100.yaml
+
+# Run inference on Modal
+modal run --quiet -m src.modal_infer --prompt "Let us meet at 9am"
 ```
 
 ### Option 2: Local Training

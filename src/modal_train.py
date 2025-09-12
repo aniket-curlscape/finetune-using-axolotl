@@ -1,6 +1,7 @@
 import modal
 from pathlib import PurePosixPath
 from typing import Union
+from pathlib import Path
 
 MINUTES = 60  # seconds
 HOURS = 60 * MINUTES
@@ -43,22 +44,28 @@ VOLUME_CONFIG: dict[Union[str, PurePosixPath], modal.Volume] = {
 }
 
 @app.function(image=axolotl_image, gpu="A10", volumes=VOLUME_CONFIG, timeout=24 * HOURS)
-def run_axolotl(run_folder: str, timeout=24 * HOURS):
+def run_axolotl(run_folder: str, output_dir, timeout=24 * HOURS):
     import torch
-    import subprocess
     cmd = f"accelerate launch --num_processes {torch.cuda.device_count()} --num_machines 1 --mixed_precision no --dynamo_backend no -m axolotl.cli.train ./config.yml  --debug"
-    subprocess.call(cmd.split(), cwd=run_folder)
+    run_cmd(cmd, run_folder)
+
+    merge_handle = merge.spawn(run_folder, output_dir)
+    with open(f"{run_folder}/logs.txt", "a") as f:
+        f.write(f"<br>merge: https://modal.com/logs/call/{merge_handle.object_id}\n")
+        print(f"Beginning merge {merge_handle.object_id}.")
+    return merge_handle
 
 
 @app.function(
     image=axolotl_image,
-    gpu=SINGLE_GPU_CONFIG,
+    gpu='a10',
     volumes=VOLUME_CONFIG,
     timeout=24 * HOURS,
 )
 def merge(run_folder: str, output_dir: str):
     import shutil
     import torch
+    import subprocess
 
     output_path = Path(run_folder) / output_dir
     shutil.rmtree(output_path / "merged", ignore_errors=True)
@@ -66,7 +73,22 @@ def merge(run_folder: str, output_dir: str):
     with open(f"{run_folder}/config.yml"):
         print(f"Merge from {output_path}")
 
-    MERGE_CMD = f"accelerate launch --num_processes {torch.cuda.device_count()} --num_machines 1 --mixed_precision no --dynamo_backend no -m axolotl.cli.merge_lora ./config.yml --lora_model_dir='{output_dir}'"
+    MERGE_CMD = [
+        "accelerate",
+        "launch",
+        "--num_processes",
+        str(torch.cuda.device_count()),
+        "--num_machines",
+        "1",
+        "--mixed_precision",
+        "no",
+        "--dynamo_backend",
+        "no",
+        "-m",
+        "axolotl.cli.merge_lora",
+        "./config.yml",
+        f"--lora_model_dir={output_path}",
+    ]
     run_cmd(MERGE_CMD, run_folder)
 
     VOLUME_CONFIG["/runs"].commit()
@@ -101,7 +123,7 @@ def launch(config_raw: str, timeout=24 * HOURS):
         f.write(config_raw)
     runs_volume.commit()
 
-    handle = run_axolotl.spawn(run_folder)
+    handle = run_axolotl.spawn(run_folder, config["output_dir"])
     return run_name, handle
 
 
@@ -109,8 +131,30 @@ def launch(config_raw: str, timeout=24 * HOURS):
 def main(config: str, timeout=24 * HOURS):
     with open(config, "r") as cfg:
         run_name, handle = launch.remote(cfg.read())
-    handle.get(timeout=24 * HOURS)
+    merge_handle = handle.get(timeout=24 * HOURS)
+    if merge_handle is not None:
+        merge_handle.get(timeout=24 * HOURS)
     print(f"Run complete. Tag: {run_name}")
+
+
+def run_cmd(cmd, run_folder: str):
+    """Run a command inside a folder, ensuring Modal volumes are reloaded/committed."""
+    import subprocess
+
+    # Ensure volumes contain latest files.
+    VOLUME_CONFIG["/pretrained"].reload()
+    VOLUME_CONFIG["/runs"].reload()
+
+    # Support both list and string commands; propagate errors.
+    if isinstance(cmd, list):
+        exit_code = subprocess.call(cmd, cwd=run_folder)
+    else:
+        exit_code = subprocess.call(str(cmd).split(), cwd=run_folder)
+    if exit_code:
+        exit(exit_code)
+
+    # Commit writes to volume.
+    VOLUME_CONFIG["/runs"].commit()
 
 
 
