@@ -50,6 +50,27 @@ def run_axolotl(run_folder: str, timeout=24 * HOURS):
     subprocess.call(cmd.split(), cwd=run_folder)
 
 
+@app.function(
+    image=axolotl_image,
+    gpu=SINGLE_GPU_CONFIG,
+    volumes=VOLUME_CONFIG,
+    timeout=24 * HOURS,
+)
+def merge(run_folder: str, output_dir: str):
+    import shutil
+    import torch
+
+    output_path = Path(run_folder) / output_dir
+    shutil.rmtree(output_path / "merged", ignore_errors=True)
+
+    with open(f"{run_folder}/config.yml"):
+        print(f"Merge from {output_path}")
+
+    MERGE_CMD = f"accelerate launch --num_processes {torch.cuda.device_count()} --num_machines 1 --mixed_precision no --dynamo_backend no -m axolotl.cli.merge_lora ./config.yml --lora_model_dir='{output_dir}'"
+    run_cmd(MERGE_CMD, run_folder)
+
+    VOLUME_CONFIG["/runs"].commit()
+
 @app.function(image=axolotl_image, volumes=VOLUME_CONFIG, timeout=24 * HOURS)
 def launch(config_raw: str, timeout=24 * HOURS):
     import os
