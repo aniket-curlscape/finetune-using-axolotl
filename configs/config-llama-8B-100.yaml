@@ -1,0 +1,60 @@
+base_model: NousResearch/Meta-Llama-3-8B
+# optionally might have model_type or tokenizer_type
+model_type: LlamaForCausalLM
+tokenizer_type: AutoTokenizer
+# Automatically upload checkpoint and final model to HF
+# hub_model_id: username/custom_model_name
+
+load_in_8bit: true
+load_in_4bit: false
+
+chat_template: llama3
+datasets:
+  - path: aniket-curlscape/pii-masking-english-100
+    type:
+      system_prompt: "You are a helpful assistant who can mask the PII data from text. Replace username with [USERNAME], email with [EMAIL], phone number with [PHONE], and address with [ADDRESS], and time with [TIME]."
+      field_system: system
+      field_instruction: source_text
+      field_output: target_text
+      format: "[INST] {instruction} [/INST]"
+      no_input_format: "[INST] {instruction} [/INST]"
+special_tokens:
+   pad_token: <|end_of_text|>
+dataset_prepared_path:
+val_set_size: 0.05
+output_dir: ./outputs/pii
+
+sequence_len: 4096
+sample_packing: false
+
+
+adapter: lora
+lora_model_dir:
+lora_r: 16
+lora_alpha: 32
+lora_dropout: 0.05
+lora_target_linear: true
+
+gradient_accumulation_steps: 4
+micro_batch_size: 2
+num_epochs: 1
+optimizer: adamw_bnb_8bit
+lr_scheduler: cosine
+learning_rate: 0.0002
+
+bf16: auto
+tf32: false
+
+gradient_checkpointing: true
+resume_from_checkpoint:
+logging_steps: 1
+flash_attention: true
+
+warmup_ratio: 0.1
+evals_per_epoch: 5
+saves_per_epoch: 3
+weight_decay: 0.0
+
+use_tensorboard: true
+
+# save_first_step: true  # uncomment this to validate checkpoint saving works with your config

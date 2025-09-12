@@ -35,12 +35,6 @@ lora_alpha: 32
 lora_dropout: 0.05
 lora_target_linear: true
 
-wandb_project:
-wandb_entity:
-wandb_watch:
-wandb_name:
-wandb_log_model:
-
 gradient_accumulation_steps: 4
 micro_batch_size: 2
 num_epochs: 1

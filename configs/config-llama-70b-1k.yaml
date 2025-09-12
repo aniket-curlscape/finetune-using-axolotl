@@ -1,0 +1,65 @@
+base_model: NousResearch/Meta-Llama-3-70B-Instruct
+model_type: LlamaForCausalLM
+tokenizer_type: AutoTokenizer
+is_llama_derived_model: true
+low_cpu_mem_usage: true
+
+chat_template: llama3
+special_tokens:
+   pad_token: "<|end_of_text|>"
+
+datasets:
+  - path: aniket-curlscape/pii-masking-english-100
+    type:
+      system_prompt: "You are a helpful assistant that masks all personally identifiable information (PII) in text. Replace each detected PII entity with the correct placeholder from the list below:\nUsernames → [USERNAME]\nGiven names → [GIVENNAME1], [GIVENNAME2]\nLast names → [LASTNAME1], [LASTNAME2]\nTitles (e.g., Mr., Dr., Archduchess) → [TITLE]\nEmails → [EMAIL]\nPhone numbers / Telephones → [TEL]\nAddresses → [BUILDING], [STREET], [CITY], [STATE], [COUNTRY], [POSTCODE], [SECADDRESS]\nDates → [DATE], birthdates → [BOD], times → [TIME]\nIdentity numbers → [SOCIALNUMBER], [PASSPORT], [DRIVERLICENSE], [IDCARD]\nPasswords / secrets → [PASS]\nIP addresses → [IP]\nSex / Gender → [SEX]\nRules:\nAlways use the most specific placeholder available.\nSupport multiple occurrences of the same type (append numbering if needed).\nPreserve all non-PII text exactly.\nApply consistently across structured (CSV, JSON, XML) and unstructured (free text, comments) formats.\nWhen in doubt (e.g., certificate numbers, encoded IDs), map to the closest ID placeholder: [IDCARD] or [DRIVERLICENSE]."
+      field_system: system
+      field_instruction: source_text
+      field_output: target_text
+      format: "[INST] {instruction} [/INST]"
+      no_input_format: "[INST] {instruction} [/INST]"
+
+val_set_size: 0.05
+output_dir: ./outputs/pii-70b
+sequence_len: 512
+sample_packing: false
+
+adapter: lora
+load_in_4bit: true
+lora_r: 8
+lora_alpha: 16
+lora_dropout: 0.05
+lora_target_linear: true
+lora_target_modules:
+  - q_proj
+  - k_proj
+  - v_proj
+  - o_proj
+  - gate_proj
+  - up_proj
+  - down_proj
+
+micro_batch_size: 1
+gradient_accumulation_steps: 16
+num_epochs: 1
+optimizer: paged_adamw_8bit
+lr_scheduler: cosine
+learning_rate: 1e-4
+warmup_ratio: 0.1
+weight_decay: 0.0
+
+bf16: true
+tf32: true
+gradient_checkpointing: true
+flash_attention: true
+torch_compile: false
+
+logging_steps: 10
+evals_per_epoch: 5
+saves_per_epoch: 3
+use_tensorboard: true
+
+fsdp_config:
+  offload_params: false
+  sync_module_states: true
+  state_dict_type: SHARDED_STATE_DICT
+  transformer_layer_cls_to_wrap: LlamaDecoderLayer

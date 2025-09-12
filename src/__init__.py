@@ -1,0 +1,1 @@
+from .modal_train import main

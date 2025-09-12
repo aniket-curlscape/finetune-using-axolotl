@@ -1,8 +1,6 @@
-import json
-from typing import Any
-
-import aiohttp
 import modal
+from pathlib import PurePosixPath
+from typing import Union
 
 MINUTES = 60  # seconds
 HOURS = 60 * MINUTES
@@ -35,10 +33,16 @@ MODEL_NAME = "NousResearch/Meta-Llama-3-8B"
 
 app = modal.App("training", image=axolotl_image)
 
-runs_volume = modal.Volume.from_name("example-runs-vol", create_if_missing=True)
+runs_volume = modal.Volume.from_name("runs-vol", create_if_missing=True)
+pretrained_volume = modal.Volume.from_name(
+    "pretrained-vol", create_if_missing=True
+)
+VOLUME_CONFIG: dict[Union[str, PurePosixPath], modal.Volume] = {
+    "/pretrained": pretrained_volume,
+    "/runs": runs_volume,
+}
 
-
-@app.function(gpu="A10", volumes={"/runs": runs_volume}, timeout=24 * HOURS)
+@app.function(image=axolotl_image, gpu="A10", volumes=VOLUME_CONFIG, timeout=24 * HOURS)
 def run_axolotl(run_folder: str, timeout=24 * HOURS):
     import torch
     import subprocess
@@ -46,11 +50,26 @@ def run_axolotl(run_folder: str, timeout=24 * HOURS):
     subprocess.call(cmd.split(), cwd=run_folder)
 
 
-@app.function(volumes={"/runs": runs_volume}, timeout=24 * HOURS)
+@app.function(image=axolotl_image, volumes=VOLUME_CONFIG, timeout=24 * HOURS)
 def launch(config_raw: str, timeout=24 * HOURS):
     import os
     from datetime import datetime
     import secrets
+    from huggingface_hub import snapshot_download
+    import yaml
+
+    config = yaml.safe_load(config_raw)
+    model_name = config["base_model"]
+
+    try:
+        snapshot_download(model_name, local_files_only=True)
+        print(f"Volume contains {model_name}.")
+    except FileNotFoundError:
+        print(f"Downloading {model_name} ...")
+        snapshot_download(model_name)
+
+        print("Committing /pretrained directory (no progress bar) ...")
+        VOLUME_CONFIG["/pretrained"].commit()
 
     time_string = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
     run_name = f"axo-{time_string}-{secrets.token_hex(2)}"
