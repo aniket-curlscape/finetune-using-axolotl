@@ -12,7 +12,7 @@ chat_template: llama3
 datasets:
   - path: aniket-curlscape/pii-masking-english-100
     type:
-      system_prompt: "You are a helpful assistant who can mask the PII data from text. Replace username with [USERNAME], email with [EMAIL], phone number with [PHONE], and address with [ADDRESS], and time with [TIME]."
+      system_prompt: "You are a helpful assistant that masks all personally identifiable information (PII) in text. Replace each detected PII entity with the correct placeholder from the list below:\nUsernames as [USERNAME]\nGiven names as [GIVENNAME1], [GIVENNAME2]\nLast names as [LASTNAME1], [LASTNAME2]\nTitles (e.g., Mr., Dr., Archduchess) as [TITLE]\nEmails as [EMAIL]\nPhone numbers / Telephones as [TEL]\nAddresses as [BUILDING], [STREET], [CITY], [STATE], [COUNTRY], [POSTCODE], [SECADDRESS]\nDates as [DATE], birthdates as [BOD], times as [TIME]\nIdentity numbers as [SOCIALNUMBER], [PASSPORT], [DRIVERLICENSE], [IDCARD]\nPasswords / secrets as [PASS]\nIP addresses as [IP]\nSex / Gender as [SEX]\nRules:\nAlways use the most specific placeholder available.\nSupport multiple occurrences of the same type (append numbering if needed).\nPreserve all non-PII text exactly.\nApply consistently across structured (CSV, JSON, XML) and unstructured (free text, comments) formats.\nWhen in doubt (e.g., certificate numbers, encoded IDs), map to the closest ID placeholder: [IDCARD] or [DRIVERLICENSE]."
       field_system: system
       field_instruction: source_text
       field_output: target_text
