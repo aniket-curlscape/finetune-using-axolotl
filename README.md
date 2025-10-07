@@ -2,6 +2,8 @@
 
 Slides to the workshop [link](https://docs.google.com/presentation/d/1lIVR0L439pkEWvrm3ulcVQT7fn__f_Bu7sZFVaQfZNA/edit?usp=sharing)
 
+The project is inspired from [link](https://github.com/modal-labs/llm-finetuning)
+
 This repository provides a comprehensive toolkit for fine-tuning Large Language Models (LLMs) using the [Axolotl](https://github.com/OpenAccess-AI-Collective/axolotl) framework. The project focuses on PII (Personally Identifiable Information) masking tasks, demonstrating how to fine-tune models to automatically detect and mask sensitive information in text.
 
 ## What This Repo Does
